@@ -145,10 +145,22 @@ impl<USB: UsbPeripheral> Endpoint<USB> {
 
             let reg = self.reg();
 
-            match reg.read().stat_tx().bits().into() {
-                EndpointStatus::Valid | EndpointStatus::Disabled => return Err(UsbError::WouldBlock),
-                _ => {}
-            };
+            // Isochronous IN endpoints keep STAT_TX == Valid across frames (the
+            // controller transmits every SOF and never NAKs), so the normal
+            // "Valid => WouldBlock" gate would reject every write after the first,
+            // leaving the host to receive the same stale frame forever. For iso we
+            // overwrite the packet buffer in place instead: the class refills right
+            // after CTR_TX (the previous frame has just gone out), well before the
+            // next SOF, so there is no collision with an in-flight transfer.
+            let is_iso = matches!(self.ep_type, Some(EndpointType::Isochronous { .. }));
+            if !is_iso {
+                match reg.read().stat_tx().bits().into() {
+                    EndpointStatus::Valid | EndpointStatus::Disabled => {
+                        return Err(UsbError::WouldBlock)
+                    }
+                    _ => {}
+                };
+            }
 
             in_buf.write(buf);
             self.descr().count_tx().set(buf.len() as u16);
