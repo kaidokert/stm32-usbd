@@ -171,6 +171,7 @@ impl<USB: UsbPeripheral> Endpoint<USB> {
                 return Err(UsbError::WouldBlock);
             }
 
+            USB::wait_for_rx_memory();
             self.clear_ctr_rx(cs);
 
             let count = (self.descr().count_rx().get() & 0x3ff) as usize;

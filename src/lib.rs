@@ -43,4 +43,11 @@ pub unsafe trait UsbPeripheral: Send + Sync {
     /// This function is called in `UsbBus::enable()` after deasserting the `pdwn` bit and before
     /// peripheral initialization.
     fn startup_delay();
+
+    /// Waits for received packet memory to become readable after CTR_RX is observed.
+    ///
+    /// Some peripherals assert CTR_RX before updating the buffer descriptor and
+    /// packet memory. Implement the device's erratum workaround here; the OUT
+    /// endpoint remains NAKed until the packet has been copied.
+    fn wait_for_rx_memory() {}
 }
